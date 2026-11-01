@@ -1,0 +1,10 @@
+{
+  "name": "stremio-hindi-cinema",
+  "version": "1.0.0",
+  "description": "Dedicated Stremio catalog addon for latest Hindi cinema releases without old classics",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js"
+  },
+  "dependencies": {}
+}
