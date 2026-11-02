@@ -4,9 +4,9 @@ const TMDB_API_KEY = process.env.TMDB_API_KEY || "b4b4b61babf3ef138fc52a9b26a4d8
 
 const MANIFEST = {
   id: "org.archit.hindi.cinema",
-  version: "1.0.0",
+  version: "1.0.1",
   name: "Latest Hindi Cinema",
-  description: "Live theatrical & cinema Hindi releases cleanly filtered without old classics. Powered by TMDB.",
+  description: "Live theatrical & cinema Hindi releases cleanly filtered without old classics. Powered by TMDB & RPDB.",
   resources: ["catalog"],
   types: ["movie"],
   idPrefixes: ["tt", "tmdb:"],
@@ -78,17 +78,54 @@ async function getLatestHindiMovies() {
 
   const metas = await Promise.all(top25.map(async (item) => {
     const imdbId = await getExternalId(item.id);
+    const hasImdb = imdbId && imdbId.startsWith('tt');
     const yearStr = item.release_date ? item.release_date.substring(0, 4) : "2026";
     
+    // ISO 8601 release timestamp enables Stremio's native IN CINEMA badge
+    const releaseDateIso = item.release_date 
+      ? new Date(item.release_date).toISOString() 
+      : new Date().toISOString();
+
+    // Rating from TMDb / IMDb
+    const rating = (item.vote_average && item.vote_average > 0) 
+      ? item.vote_average.toFixed(1) 
+      : undefined;
+
+    // Use RPDB poster for embedded rating overlay if IMDb ID exists, else fallback to TMDb original
+    const poster = hasImdb 
+      ? `https://api.ratingposterdb.com/t0-free-rpdb/imdb/poster-default/${imdbId}.jpg`
+      : `https://image.tmdb.org/t/p/w500${item.poster_path}`;
+
+    const links = [
+      {
+        name: "Cinema",
+        category: "Genres",
+        url: "stremio:///discover/https%3A%2F%2Fstremio-hindi-cinema-archit-gupta-8227s-projects.vercel.app%2Fmanifest.json/movie/latest_hindi_cinema"
+      }
+    ];
+
+    if (rating && hasImdb) {
+      links.push({
+        name: rating,
+        category: "imdb",
+        url: `https://imdb.com/title/${imdbId}`
+      });
+    }
+
     return {
       id: imdbId,
       type: "movie",
       name: item.title,
-      poster: `https://image.tmdb.org/t/p/w500${item.poster_path}`,
+      poster: poster,
       background: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : undefined,
       description: item.overview || "Latest Hindi cinema theatrical release.",
       releaseInfo: yearStr,
-      genres: ["Hindi", "Cinema"]
+      released: releaseDateIso,
+      imdbRating: rating,
+      inCinema: true,
+      in_cinema: true,
+      genres: ["Hindi", "Cinema"],
+      links: links
     };
   }));
 
