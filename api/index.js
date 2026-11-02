@@ -4,7 +4,7 @@ const TMDB_API_KEY = process.env.TMDB_API_KEY || "b4b4b61babf3ef138fc52a9b26a4d8
 
 const MANIFEST = {
   id: "org.archit.hindi.cinema",
-  version: "1.0.1",
+  version: "1.0.2",
   name: "Latest Hindi Cinema",
   description: "Live theatrical & cinema Hindi releases cleanly filtered without old classics. Powered by TMDB & RPDB.",
   resources: ["catalog"],
@@ -13,7 +13,7 @@ const MANIFEST = {
   catalogs: [
     {
       type: "movie",
-      id: "latest_hindi_cinema",
+      id: "latest_hindi_cinema_v2",
       name: "Latest Releases — Hindi Cinema"
     }
   ]
@@ -132,7 +132,7 @@ module.exports = async (req, res) => {
     try {
       const metas = await getLatestHindiMovies();
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.status(200).json({ metas });
     } catch (e) {
       console.error(e);
