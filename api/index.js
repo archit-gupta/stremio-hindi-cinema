@@ -86,31 +86,10 @@ async function getLatestHindiMovies() {
       ? new Date(item.release_date).toISOString() 
       : new Date().toISOString();
 
-    // Rating from TMDb / IMDb
-    const rating = (item.vote_average && item.vote_average > 0) 
-      ? item.vote_average.toFixed(1) 
-      : undefined;
-
     // Use RPDB poster for embedded rating overlay if IMDb ID exists, else fallback to TMDb original
     const poster = hasImdb 
       ? `https://api.ratingposterdb.com/t0-free-rpdb/imdb/poster-default/${imdbId}.jpg`
       : `https://image.tmdb.org/t/p/w500${item.poster_path}`;
-
-    const links = [
-      {
-        name: "Cinema",
-        category: "Genres",
-        url: "stremio:///discover/https%3A%2F%2Fstremio-hindi-cinema-archit-gupta-8227s-projects.vercel.app%2Fmanifest.json/movie/latest_hindi_cinema"
-      }
-    ];
-
-    if (rating && hasImdb) {
-      links.push({
-        name: rating,
-        category: "imdb",
-        url: `https://imdb.com/title/${imdbId}`
-      });
-    }
 
     return {
       id: imdbId,
@@ -121,11 +100,9 @@ async function getLatestHindiMovies() {
       description: item.overview || "Latest Hindi cinema theatrical release.",
       releaseInfo: yearStr,
       released: releaseDateIso,
-      imdbRating: rating,
       inCinema: true,
       in_cinema: true,
-      genres: ["Hindi", "Cinema"],
-      links: links
+      genres: ["Hindi", "Cinema"]
     };
   }));
 
