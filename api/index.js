@@ -4,9 +4,9 @@ const TMDB_API_KEY = process.env.TMDB_API_KEY || "b4b4b61babf3ef138fc52a9b26a4d8
 
 const MANIFEST = {
   id: "org.archit.hindi.cinema",
-  version: "1.0.2",
-  name: "Latest Hindi Cinema",
-  description: "Live theatrical & cinema Hindi releases cleanly filtered without old classics. Powered by TMDB & RPDB.",
+  version: "1.1.0",
+  name: "Hindi & South Cinema",
+  description: "Curated Hindi theatrical releases, South Indian blockbusters in Hindi, and top Hindi OTT hits. Powered by TMDB & RPDB.",
   resources: ["catalog"],
   types: ["movie"],
   idPrefixes: ["tt", "tmdb:"],
@@ -15,13 +15,23 @@ const MANIFEST = {
       type: "movie",
       id: "latest_hindi_cinema_v2",
       name: "Latest Releases — Hindi Cinema"
+    },
+    {
+      type: "movie",
+      id: "south_hindi_dubbed",
+      name: "Hindi Dubbed — South Blockbusters"
+    },
+    {
+      type: "movie",
+      id: "popular_hindi_ott",
+      name: "Popular Hindi Movies on OTT"
     }
   ]
 };
 
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'User-Agent': 'StremioAddon/1.0' } }, (res) => {
+    https.get(url, { headers: { 'User-Agent': 'StremioAddon/1.1' } }, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
@@ -44,6 +54,7 @@ async function getExternalId(tmdbId) {
   }
 }
 
+// 1. Latest Releases — Hindi Cinema (Current Theatrical / Fresh 2025-2026)
 async function getLatestHindiMovies() {
   const now = new Date();
   const today = now.toISOString().split('T')[0];
@@ -63,11 +74,8 @@ async function getLatestHindiMovies() {
 
   for (const item of allResults) {
     if (!item.title || !item.poster_path) continue;
-    
-    // Strict date filter: NO movies older than 2025!
     const year = item.release_date ? parseInt(item.release_date.substring(0, 4), 10) : 2026;
     if (year < 2025) continue;
-
     if (!itemsMap.has(item.id)) {
       itemsMap.set(item.id, item);
     }
@@ -80,13 +88,10 @@ async function getLatestHindiMovies() {
     const imdbId = await getExternalId(item.id);
     const hasImdb = imdbId && imdbId.startsWith('tt');
     const yearStr = item.release_date ? item.release_date.substring(0, 4) : "2026";
-    
-    // ISO 8601 release timestamp enables Stremio's native IN CINEMA badge
     const releaseDateIso = item.release_date 
       ? new Date(item.release_date).toISOString() 
       : new Date().toISOString();
 
-    // Use RPDB poster for embedded rating overlay if IMDb ID exists, else fallback to TMDb original
     const poster = hasImdb 
       ? `https://api.ratingposterdb.com/t0-free-rpdb/imdb/poster-default/${imdbId}.jpg`
       : `https://image.tmdb.org/t/p/w500${item.poster_path}`;
@@ -103,6 +108,84 @@ async function getLatestHindiMovies() {
       inCinema: true,
       in_cinema: true,
       genres: ["Hindi", "Cinema"]
+    };
+  }));
+
+  return metas;
+}
+
+// 2. Hindi Dubbed — South Blockbusters (Telugu, Tamil, Malayalam, Kannada blockbusters)
+async function getSouthHindiDubbedMovies() {
+  const languages = ['te', 'ta', 'ml', 'kn'];
+  const promises = languages.map(lang => {
+    const url = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=${lang}&primary_release_date.gte=2023-01-01&sort_by=popularity.desc&vote_count.gte=10`;
+    return fetchJson(url).catch(() => ({ results: [] }));
+  });
+
+  const resultsList = await Promise.all(promises);
+  const itemsMap = new Map();
+
+  for (const res of resultsList) {
+    for (const item of (res.results || [])) {
+      if (!item.title || !item.poster_path) continue;
+      if (!itemsMap.has(item.id)) {
+        itemsMap.set(item.id, item);
+      }
+    }
+  }
+
+  const sorted = Array.from(itemsMap.values()).sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+  const top25 = sorted.slice(0, 25);
+
+  const metas = await Promise.all(top25.map(async (item) => {
+    const imdbId = await getExternalId(item.id);
+    const hasImdb = imdbId && imdbId.startsWith('tt');
+    const yearStr = item.release_date ? item.release_date.substring(0, 4) : "2024";
+
+    const poster = hasImdb 
+      ? `https://api.ratingposterdb.com/t0-free-rpdb/imdb/poster-default/${imdbId}.jpg`
+      : `https://image.tmdb.org/t/p/w500${item.poster_path}`;
+
+    return {
+      id: imdbId,
+      type: "movie",
+      name: item.title,
+      poster: poster,
+      background: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : undefined,
+      description: item.overview || "Popular South Indian blockbuster available with Hindi audio.",
+      releaseInfo: yearStr,
+      genres: ["Hindi Dubbed", "South Indian"]
+    };
+  }));
+
+  return metas;
+}
+
+// 3. Popular Hindi Movies on OTT (Streaming Hits: Jawan, Animal, Stree 2, 12th Fail, etc.)
+async function getPopularHindiOttMovies() {
+  const url = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=hi&primary_release_date.gte=2023-01-01&sort_by=popularity.desc&vote_count.gte=20`;
+  const res = await fetchJson(url).catch(() => ({ results: [] }));
+
+  const items = (res.results || []).filter(item => item.title && item.poster_path).slice(0, 25);
+
+  const metas = await Promise.all(items.map(async (item) => {
+    const imdbId = await getExternalId(item.id);
+    const hasImdb = imdbId && imdbId.startsWith('tt');
+    const yearStr = item.release_date ? item.release_date.substring(0, 4) : "2024";
+
+    const poster = hasImdb 
+      ? `https://api.ratingposterdb.com/t0-free-rpdb/imdb/poster-default/${imdbId}.jpg`
+      : `https://image.tmdb.org/t/p/w500${item.poster_path}`;
+
+    return {
+      id: imdbId,
+      type: "movie",
+      name: item.title,
+      poster: poster,
+      background: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : undefined,
+      description: item.overview || "Top streaming Hindi movie on OTT.",
+      releaseInfo: yearStr,
+      genres: ["Hindi", "OTT"]
     };
   }));
 
@@ -128,11 +211,35 @@ module.exports = async (req, res) => {
     return res.status(200).json(MANIFEST);
   }
 
-  if (url.includes('catalog') || path === 'catalog') {
+  if (url.includes('south_hindi_dubbed') || path === 'south_hindi_dubbed') {
+    try {
+      const metas = await getSouthHindiDubbedMovies();
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      return res.status(200).json({ metas });
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({ error: e.message, metas: [] });
+    }
+  }
+
+  if (url.includes('popular_hindi_ott') || path === 'popular_hindi_ott') {
+    try {
+      const metas = await getPopularHindiOttMovies();
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      return res.status(200).json({ metas });
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({ error: e.message, metas: [] });
+    }
+  }
+
+  if (url.includes('catalog') || path === 'catalog' || url.includes('latest_hindi_cinema_v2')) {
     try {
       const metas = await getLatestHindiMovies();
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
       return res.status(200).json({ metas });
     } catch (e) {
       console.error(e);
@@ -145,10 +252,10 @@ module.exports = async (req, res) => {
   return res.status(200).send(`
     <!DOCTYPE html>
     <html>
-      <head><title>Latest Hindi Cinema Addon</title></head>
+      <head><title>Hindi & South Cinema Addon</title></head>
       <body style="font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; line-height: 1.6; text-align: center;">
-        <h1>🎬 Latest Hindi Cinema Addon</h1>
-        <p>Custom Stremio addon for brand new Hindi theatrical releases without old classics.</p>
+        <h1>🎬 Hindi & South Cinema Addon</h1>
+        <p>Curated Hindi theatrical releases, South Indian blockbusters in Hindi, and top Hindi OTT hits.</p>
         <p><a href="stremio://${req.headers.host}/manifest.json" style="background: #655099; color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold;">Install in Stremio</a></p>
         <p style="color: #666; font-size: 14px;">Manifest URL: <code>https://${req.headers.host}/manifest.json</code></p>
       </body>
