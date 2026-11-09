@@ -4,11 +4,11 @@ const TMDB_API_KEY = process.env.TMDB_API_KEY || "b4b4b61babf3ef138fc52a9b26a4d8
 
 const MANIFEST = {
   id: "org.archit.hindi.cinema",
-  version: "1.4.2",
+  version: "1.4.3",
   name: "Hindi & South Cinema",
-  description: "Curated 100% Hindi cinema: Latest OTT releases, Hindi-dubbed South blockbusters, theatrical premieres, action thrillers, family comedies, and top web series. Family-safe and clean. Powered by TMDB & RPDB.",
+  description: "Curated 100% Hindi cinema: Latest OTT releases, Hindi-dubbed South blockbusters, theatrical premieres, action thrillers, and family comedies. Family-safe and clean. Powered by TMDB & RPDB.",
   resources: ["catalog"],
-  types: ["movie", "series"],
+  types: ["movie"],
   idPrefixes: ["tt", "tmdb:"],
   catalogs: [
     {
@@ -40,11 +40,6 @@ const MANIFEST = {
       type: "movie",
       id: "hindi_family_comedy",
       name: "👨‍👩‍👦 Hindi Family & Comedy Favorites"
-    },
-    {
-      type: "series",
-      id: "top_hindi_series",
-      name: "📺 Top Hindi Web Series & TV"
     }
   ]
 };
