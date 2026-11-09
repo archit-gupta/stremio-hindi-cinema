@@ -4,7 +4,7 @@ const TMDB_API_KEY = process.env.TMDB_API_KEY || "b4b4b61babf3ef138fc52a9b26a4d8
 
 const MANIFEST = {
   id: "org.archit.hindi.cinema",
-  version: "1.3.0",
+  version: "1.4.0",
   name: "Hindi & South Cinema",
   description: "Curated 100% Hindi cinema: Latest OTT releases, Hindi-dubbed South blockbusters, theatrical premieres, action thrillers, family comedies, and top web series. Family-safe and clean. Powered by TMDB & RPDB.",
   resources: ["catalog"],
@@ -51,7 +51,7 @@ const MANIFEST = {
 
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'User-Agent': 'StremioAddon/1.3' } }, (res) => {
+    https.get(url, { headers: { 'User-Agent': 'StremioAddon/1.4' } }, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
@@ -63,6 +63,17 @@ function fetchJson(url) {
       });
     }).on('error', reject);
   });
+}
+
+function isFamilySafe(item) {
+  const name = (item.title || item.name || '').toLowerCase();
+  const desc = (item.overview || '').toLowerCase();
+  const forbidden = [
+    'lust stories', 'sex', 'erotic', 'kamasutra', 'jism', 'hate story',
+    'porn', 'sensual', 'escort', 'dirty', 'ragini mms', 'murder 2', 'murder 3',
+    'sapiosexual', 'inside lara roxx', '365 days', 'fifty shades'
+  ];
+  return !forbidden.some(w => name.includes(w) || desc.includes(w));
 }
 
 async function getExternalId(tmdbId) {
@@ -87,12 +98,12 @@ async function getTvExternalId(tmdbId) {
 async function getLatestHindiOttMovies() {
   const now = new Date();
   const today = now.toISOString().split('T')[0];
-  const past = new Date(now.getTime() - 240 * 24 * 60 * 60 * 1000); // Last 8 months
+  const past = new Date(now.getTime() - 270 * 24 * 60 * 60 * 1000); // Last 9 months
   const cutoff = past.toISOString().split('T')[0];
 
-  const url = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=hi&include_adult=false&primary_release_date.gte=${cutoff}&primary_release_date.lte=${today}&sort_by=popularity.desc&vote_count.gte=5`;
+  const url = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=hi&include_adult=false&primary_release_date.gte=${cutoff}&primary_release_date.lte=${today}&sort_by=popularity.desc&vote_count.gte=15`;
   const res = await fetchJson(url).catch(() => ({ results: [] }));
-  const items = (res.results || []).filter(item => item.title && item.poster_path).slice(0, 25);
+  const items = (res.results || []).filter(item => item.title && item.poster_path && isFamilySafe(item)).slice(0, 25);
 
   const metas = await Promise.all(items.map(async (item) => {
     const imdbId = await getExternalId(item.id);
@@ -118,15 +129,16 @@ async function getLatestHindiOttMovies() {
   return metas;
 }
 
-// 2. Latest Hindi Dubbed — South Blockbusters (Pushpa 2, Kalki 2898 AD, Devara, GOAT, Amaran, Lucky Baskhar, etc.)
+// 2. Latest Hindi Dubbed — South Blockbusters (Pushpa 2, Kalki 2898 AD, Devara, Salaar, GOAT, Amaran, Lucky Baskhar, etc.)
 async function getLatestSouthHindiDubbedMovies() {
   const now = new Date();
-  const past = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000); // Last 12 months
+  const today = now.toISOString().split('T')[0];
+  const past = new Date(now.getTime() - 540 * 24 * 60 * 60 * 1000); // Last 18 months
   const cutoff = past.toISOString().split('T')[0];
 
   const languages = ['te', 'ta', 'ml', 'kn'];
   const promises = languages.map(lang => {
-    const url = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=${lang}&include_adult=false&primary_release_date.gte=${cutoff}&sort_by=popularity.desc&vote_count.gte=8`;
+    const url = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=${lang}&include_adult=false&primary_release_date.gte=${cutoff}&primary_release_date.lte=${today}&sort_by=popularity.desc&vote_count.gte=25`;
     return fetchJson(url).catch(() => ({ results: [] }));
   });
 
@@ -135,7 +147,7 @@ async function getLatestSouthHindiDubbedMovies() {
 
   for (const res of resultsList) {
     for (const item of (res.results || [])) {
-      if (!item.title || !item.poster_path) continue;
+      if (!item.title || !item.poster_path || !isFamilySafe(item)) continue;
       if (!itemsMap.has(item.id)) {
         itemsMap.set(item.id, item);
       }
@@ -176,8 +188,8 @@ async function getLatestHindiMovies() {
   const past = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
   const cutoff = past.toISOString().split('T')[0];
 
-  const discoverUrl = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=hi&include_adult=false&primary_release_date.gte=${cutoff}&primary_release_date.lte=${today}&sort_by=popularity.desc&vote_count.gte=1`;
-  const year2026Url = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=hi&include_adult=false&primary_release_year=2026&sort_by=popularity.desc`;
+  const discoverUrl = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=hi&include_adult=false&primary_release_date.gte=${cutoff}&primary_release_date.lte=${today}&sort_by=popularity.desc&vote_count.gte=5`;
+  const year2026Url = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=hi&include_adult=false&primary_release_year=2026&sort_by=popularity.desc&vote_count.gte=5`;
 
   const [res1, res2] = await Promise.all([
     fetchJson(discoverUrl).catch(() => ({ results: [] })),
@@ -188,7 +200,7 @@ async function getLatestHindiMovies() {
   const allResults = [...(res1.results || []), ...(res2.results || [])];
 
   for (const item of allResults) {
-    if (!item.title || !item.poster_path) continue;
+    if (!item.title || !item.poster_path || !isFamilySafe(item)) continue;
     const year = item.release_date ? parseInt(item.release_date.substring(0, 4), 10) : 2026;
     if (year < 2025) continue;
     if (!itemsMap.has(item.id)) {
@@ -231,10 +243,12 @@ async function getLatestHindiMovies() {
 
 // 4. All-Time Popular Hindi OTT Hits (Jawan, Animal, Stree 2, 12th Fail, Dunki, Fighter, etc.)
 async function getPopularHindiOttMovies() {
-  const url = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=hi&include_adult=false&primary_release_date.gte=2023-01-01&sort_by=popularity.desc&vote_count.gte=20`;
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const url = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=hi&include_adult=false&primary_release_date.gte=2023-01-01&primary_release_date.lte=${today}&sort_by=popularity.desc&vote_count.gte=30`;
   const res = await fetchJson(url).catch(() => ({ results: [] }));
 
-  const items = (res.results || []).filter(item => item.title && item.poster_path).slice(0, 25);
+  const items = (res.results || []).filter(item => item.title && item.poster_path && isFamilySafe(item)).slice(0, 25);
 
   const metas = await Promise.all(items.map(async (item) => {
     const imdbId = await getExternalId(item.id);
@@ -262,9 +276,11 @@ async function getPopularHindiOttMovies() {
 
 // 5. Hindi Action & Crime Thrillers (Fighter, Jawan, Pathaan, Tiger 3, Drishyam 2, Shaitaan, Kill, etc.)
 async function getHindiActionThrillers() {
-  const url = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=hi&with_genres=28|53&include_adult=false&sort_by=popularity.desc&vote_count.gte=15`;
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const url = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=hi&with_genres=28|53&include_adult=false&primary_release_date.lte=${today}&sort_by=popularity.desc&vote_count.gte=20`;
   const res = await fetchJson(url).catch(() => ({ results: [] }));
-  const items = (res.results || []).filter(item => item.title && item.poster_path).slice(0, 25);
+  const items = (res.results || []).filter(item => item.title && item.poster_path && isFamilySafe(item)).slice(0, 25);
 
   const metas = await Promise.all(items.map(async (item) => {
     const imdbId = await getExternalId(item.id);
@@ -295,7 +311,7 @@ async function getHindiFamilyComedyMovies() {
   const url = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=hi&with_genres=35&include_adult=false&sort_by=vote_count.desc&vote_average.gte=6.5&vote_count.gte=40`;
   const res = await fetchJson(url).catch(() => ({ results: [] }));
 
-  const items = (res.results || []).filter(item => item.title && item.poster_path).slice(0, 25);
+  const items = (res.results || []).filter(item => item.title && item.poster_path && isFamilySafe(item)).slice(0, 25);
 
   const metas = await Promise.all(items.map(async (item) => {
     const imdbId = await getExternalId(item.id);
@@ -323,10 +339,10 @@ async function getHindiFamilyComedyMovies() {
 
 // 7. Top Hindi Web Series & TV (Panchayat, Gullak, Mirzapur, Family Man, Scam 1992, C.I.D., etc.)
 async function getTopHindiSeries() {
-  const url = `https://api.themoviedb.org/3/discover/tv?api_key=${TMDB_API_KEY}&with_original_language=hi&include_adult=false&sort_by=popularity.desc&vote_count.gte=5`;
+  const url = `https://api.themoviedb.org/3/discover/tv?api_key=${TMDB_API_KEY}&with_original_language=hi&include_adult=false&sort_by=popularity.desc&vote_count.gte=10`;
   const res = await fetchJson(url).catch(() => ({ results: [] }));
 
-  const items = (res.results || []).filter(item => item.name && item.poster_path).slice(0, 25);
+  const items = (res.results || []).filter(item => item.name && item.poster_path && isFamilySafe(item)).slice(0, 25);
 
   const metas = await Promise.all(items.map(async (item) => {
     const imdbId = await getTvExternalId(item.id);
@@ -363,7 +379,8 @@ module.exports = async (req, res) => {
   }
 
   const url = req.url || '';
-  const path = req.query.path || '';
+  const path = (req.query && req.query.path) || '';
+  const catId = (req.query && req.query.id) || '';
 
   if (url === '/manifest.json' || path === 'manifest') {
     res.setHeader('Content-Type', 'application/json');
@@ -371,7 +388,7 @@ module.exports = async (req, res) => {
     return res.status(200).json(MANIFEST);
   }
 
-  if (url.includes('latest_hindi_ott') || path === 'latest_hindi_ott') {
+  if (catId === 'latest_hindi_ott' || url.includes('latest_hindi_ott') || path === 'latest_hindi_ott') {
     try {
       const metas = await getLatestHindiOttMovies();
       res.setHeader('Content-Type', 'application/json');
@@ -383,7 +400,7 @@ module.exports = async (req, res) => {
     }
   }
 
-  if (url.includes('south_hindi_dubbed') || path === 'south_hindi_dubbed' || url.includes('latest_south_hindi_dubbed') || path === 'latest_south_hindi_dubbed') {
+  if (catId === 'latest_south_hindi_dubbed' || catId === 'south_hindi_dubbed' || url.includes('latest_south_hindi_dubbed') || url.includes('south_hindi_dubbed') || path === 'latest_south_hindi_dubbed' || path === 'south_hindi_dubbed') {
     try {
       const metas = await getLatestSouthHindiDubbedMovies();
       res.setHeader('Content-Type', 'application/json');
@@ -395,7 +412,7 @@ module.exports = async (req, res) => {
     }
   }
 
-  if (url.includes('popular_hindi_ott') || path === 'popular_hindi_ott') {
+  if (catId === 'popular_hindi_ott' || url.includes('popular_hindi_ott') || path === 'popular_hindi_ott') {
     try {
       const metas = await getPopularHindiOttMovies();
       res.setHeader('Content-Type', 'application/json');
@@ -407,7 +424,7 @@ module.exports = async (req, res) => {
     }
   }
 
-  if (url.includes('hindi_action_thrillers') || path === 'hindi_action_thrillers') {
+  if (catId === 'hindi_action_thrillers' || url.includes('hindi_action_thrillers') || path === 'hindi_action_thrillers') {
     try {
       const metas = await getHindiActionThrillers();
       res.setHeader('Content-Type', 'application/json');
@@ -419,7 +436,7 @@ module.exports = async (req, res) => {
     }
   }
 
-  if (url.includes('hindi_family_comedy') || path === 'hindi_family_comedy') {
+  if (catId === 'hindi_family_comedy' || url.includes('hindi_family_comedy') || path === 'hindi_family_comedy') {
     try {
       const metas = await getHindiFamilyComedyMovies();
       res.setHeader('Content-Type', 'application/json');
@@ -431,7 +448,7 @@ module.exports = async (req, res) => {
     }
   }
 
-  if (url.includes('top_hindi_series') || path === 'top_hindi_series') {
+  if (catId === 'top_hindi_series' || url.includes('top_hindi_series') || path === 'top_hindi_series') {
     try {
       const metas = await getTopHindiSeries();
       res.setHeader('Content-Type', 'application/json');
@@ -443,7 +460,7 @@ module.exports = async (req, res) => {
     }
   }
 
-  if (url.includes('catalog') || path === 'catalog' || url.includes('latest_hindi_cinema_v2')) {
+  if (catId === 'latest_hindi_cinema_v2' || url.includes('latest_hindi_cinema_v2') || url.includes('catalog') || path === 'catalog') {
     try {
       const metas = await getLatestHindiMovies();
       res.setHeader('Content-Type', 'application/json');
