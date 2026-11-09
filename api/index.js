@@ -4,7 +4,7 @@ const TMDB_API_KEY = process.env.TMDB_API_KEY || "b4b4b61babf3ef138fc52a9b26a4d8
 
 const MANIFEST = {
   id: "org.archit.hindi.cinema",
-  version: "1.4.1",
+  version: "1.4.2",
   name: "Hindi & South Cinema",
   description: "Curated 100% Hindi cinema: Latest OTT releases, Hindi-dubbed South blockbusters, theatrical premieres, action thrillers, family comedies, and top web series. Family-safe and clean. Powered by TMDB & RPDB.",
   resources: ["catalog"],
@@ -138,9 +138,11 @@ async function getLatestHindiOttMovies() {
     id: item.id,
     type: "movie",
     name: item.name,
-    poster: `https://api.ratingposterdb.com/t0-free-rpdb/imdb/poster-default/${item.id}.jpg`,
+    poster: `https://images.metahub.space/poster/medium/${item.id}/img`,
+    background: `https://images.metahub.space/background/medium/${item.id}/img`,
     description: item.description,
     releaseInfo: item.releaseInfo,
+    posterShape: "poster",
     genres: ["Hindi", "Latest OTT"]
   }));
 
@@ -164,7 +166,7 @@ async function getLatestHindiOttMovies() {
 
     const hasImdb = imdbId.startsWith('tt');
     const poster = hasImdb 
-      ? `https://api.ratingposterdb.com/t0-free-rpdb/imdb/poster-default/${imdbId}.jpg`
+      ? `https://images.metahub.space/poster/medium/${imdbId}/img`
       : `https://image.tmdb.org/t/p/w500${item.poster_path}`;
 
     dynamicMetas.push({
@@ -172,8 +174,10 @@ async function getLatestHindiOttMovies() {
       type: "movie",
       name: item.title,
       poster: poster,
+      background: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : undefined,
       description: item.overview || "Latest Hindi OTT digital streaming release.",
       releaseInfo: item.release_date ? item.release_date.substring(0, 4) : "2024",
+      posterShape: "poster",
       genres: ["Hindi", "Latest OTT"]
     });
   }
@@ -187,9 +191,11 @@ async function getLatestSouthHindiDubbedMovies() {
     id: item.id,
     type: "movie",
     name: item.name,
-    poster: `https://api.ratingposterdb.com/t0-free-rpdb/imdb/poster-default/${item.id}.jpg`,
+    poster: `https://images.metahub.space/poster/medium/${item.id}/img`,
+    background: `https://images.metahub.space/background/medium/${item.id}/img`,
     description: item.description,
     releaseInfo: item.releaseInfo,
+    posterShape: "poster",
     genres: ["Hindi Dubbed", "South Blockbuster"]
   }));
 
@@ -218,7 +224,7 @@ async function getLatestSouthHindiDubbedMovies() {
 
       const hasImdb = imdbId.startsWith('tt');
       const poster = hasImdb 
-        ? `https://api.ratingposterdb.com/t0-free-rpdb/imdb/poster-default/${imdbId}.jpg`
+        ? `https://images.metahub.space/poster/medium/${imdbId}/img`
         : `https://image.tmdb.org/t/p/w500${item.poster_path}`;
 
       dynamicMetas.push({
@@ -226,8 +232,10 @@ async function getLatestSouthHindiDubbedMovies() {
         type: "movie",
         name: item.title,
         poster: poster,
+        background: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : undefined,
         description: item.overview || "Popular South Indian blockbuster available with Hindi audio.",
         releaseInfo: item.release_date ? item.release_date.substring(0, 4) : "2024",
+        posterShape: "poster",
         genres: ["Hindi Dubbed", "South Blockbuster"]
       });
     }
@@ -421,7 +429,7 @@ module.exports = async (req, res) => {
 
   if (url === '/manifest.json' || path === 'manifest') {
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     return res.status(200).json(MANIFEST);
   }
 
@@ -429,7 +437,7 @@ module.exports = async (req, res) => {
     try {
       const metas = await getLatestHindiOttMovies();
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.status(200).json({ metas });
     } catch (e) {
       console.error(e);
@@ -441,7 +449,7 @@ module.exports = async (req, res) => {
     try {
       const metas = await getLatestSouthHindiDubbedMovies();
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.status(200).json({ metas });
     } catch (e) {
       console.error(e);
@@ -453,7 +461,7 @@ module.exports = async (req, res) => {
     try {
       const metas = await getPopularHindiOttMovies();
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.status(200).json({ metas });
     } catch (e) {
       console.error(e);
@@ -465,7 +473,7 @@ module.exports = async (req, res) => {
     try {
       const metas = await getHindiActionThrillers();
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.status(200).json({ metas });
     } catch (e) {
       console.error(e);
@@ -477,7 +485,7 @@ module.exports = async (req, res) => {
     try {
       const metas = await getHindiFamilyComedyMovies();
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.status(200).json({ metas });
     } catch (e) {
       console.error(e);
@@ -489,7 +497,7 @@ module.exports = async (req, res) => {
     try {
       const metas = await getTopHindiSeries();
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.status(200).json({ metas });
     } catch (e) {
       console.error(e);
@@ -501,7 +509,7 @@ module.exports = async (req, res) => {
     try {
       const metas = await getLatestHindiMovies();
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.status(200).json({ metas });
     } catch (e) {
       console.error(e);
